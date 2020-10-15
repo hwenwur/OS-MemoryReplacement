@@ -1,5 +1,4 @@
 #include <iostream>
-#include <cstdio>
 #include <iomanip>
 #include <fstream>
 #include <vector>
@@ -233,11 +232,10 @@ int main(int argc, char *argv[])
         int f1 = FIFO(i);
         int f2 = LRU(i);
         int f3 = OPT(i);
-        // cout << setw(2) << i << " page frames:	 "
-        //      << "FIFO:" << hitRate(f1)
-        //      << ", LRU:" << hitRate(f2)
-        //      << ", OPT:" << hitRate(f3) << endl;
-        printf("%2d page frames:	 FIFO:%.4f, LRU:%.4f, OPT:%.4f\n", i, hitRate(f1), hitRate(f2), hitRate(f3));
+        cout << setw(2) << i << " page frames:	 "
+             << "FIFO:" << hitRate(f1)
+             << ", LRU:" << hitRate(f2)
+             << ", OPT:" << hitRate(f3) << endl;
     }
     return 0;
 }
