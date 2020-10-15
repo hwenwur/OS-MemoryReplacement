@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <fstream>
 #include <vector>
+#include <deque>
 
 #define TOTAL_INSTRUCTION 320
 #define VM_CAPACITY 32
@@ -21,11 +22,10 @@ public:
 class PageTableEntry
 {
 public:
-    PageTableEntry() : present(false), realPage(-1), accessedSeq(0) {}
+    PageTableEntry() : present(false), realPage(-1) {}
 
 public:
     int realPage;    // 实存页索引
-    int accessedSeq; // 最近访问序号，用于 LRU 算法标记。
     bool present;    // 是否已加载到实存
 };
 
@@ -103,6 +103,7 @@ int LRU(int memoryPageCount)
 {
     vector<MemoryBlock> memory(memoryPageCount);
     vector<PageTableEntry> PMT(VM_CAPACITY);
+    vector<int> lruCache;
 
     int seq = 0;            // 递增序列，用于标记最近一次访问的时间
     int pageFaultCount = 0; // 缺页中断次数
@@ -118,30 +119,23 @@ int LRU(int memoryPageCount)
             {
                 // 没有空闲主存
                 // 淘汰 memory[] 中 accessedSeq 最小的
-                int min = -1, minIndex = 0;
-                for (int j = 0; j < PMT.size(); j++)
+                vector<int>::iterator it = lruCache.begin();
+                for(int j = 0; j < PMT.size(); j++)
                 {
-                    if (PMT[j].present)
-                    {
-                        if (min == -1 || min > PMT[j].accessedSeq)
-                        {
-                            min = PMT[j].accessedSeq;
-                            minIndex = j;
-                        }
-                    }
+                    if(PMT[j].present && PMT[j].realPage == *it)
+                        PMT[j].present = false;
                 }
-                if (min == -1)
-                    throw "Error: can not find the maxval of PMT[].accessedSeq";
-                PageTableEntry *m = &PMT[minIndex];
-                m->present = false;
-                memory[m->realPage].free = true;
+                memory[ *it ].free = true;
+                lruCache.erase(it);
             }
+
             for (int j = 0; j < memory.size(); j++)
             {
+                // 任意找一块空闲实存
                 if (memory[j].free)
                 {
                     memory[j].free = false;
-                    PMT[page].accessedSeq = ++seq;
+                    lruCache.push_back(j);
                     PMT[page].present = true;
                     PMT[page].realPage = j;
                     break;
@@ -151,7 +145,19 @@ int LRU(int memoryPageCount)
         else
         {
             // 命中
-            PMT[page].accessedSeq = ++seq;
+            vector<int>::iterator it = lruCache.begin();
+            while(it != lruCache.end())
+            {
+                if(*it == PMT[page].realPage)
+                {
+                    // 把命中的页移到最右边
+                    int tmp = *it;
+                    lruCache.erase(it);
+                    lruCache.push_back(tmp);
+                    break;
+                }
+                it++;
+            }
         }
     }
     return pageFaultCount;
@@ -160,8 +166,6 @@ int LRU(int memoryPageCount)
 int main(int argc, char *argv[])
 {
     int r = createInstructionAddr("D:\\Download\\test3dat.dat");
-    cout << "r = " << r << endl;
-    cout << "totals = " << totals << endl;
     cout << setprecision(4) << fixed;
     for (int i = 4; i <= 32; i++)
     {
