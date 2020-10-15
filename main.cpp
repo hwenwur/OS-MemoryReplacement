@@ -221,6 +221,8 @@ int OPT(int memoryPageCount)
     return pageFaultCount;
 }
 
+inline double hitRate(int f) { return 1 - double(f) / totals; }
+
 int main(int argc, char *argv[])
 {
     int r = createInstructionAddr("./test3dat.dat");
@@ -231,9 +233,9 @@ int main(int argc, char *argv[])
         int f2 = LRU(i);
         int f3 = OPT(i);
         cout << setw(2) << i << " page frames:	 "
-             << "FIFO:" << (1 - double(f1) / totals)
-             << ", LRU:" << (1 - double(f2) / totals)
-             << ", OPT:" << (1 - double(f3) / totals) << endl;
+             << "FIFO:" << hitRate(f1)
+             << ", LRU:" << hitRate(f2)
+             << ", OPT:" << hitRate(f3) << endl;
     }
     return 0;
 }
