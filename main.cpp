@@ -25,8 +25,8 @@ public:
     PageTableEntry() : present(false), realPage(-1) {}
 
 public:
-    int realPage;    // 实存页索引
-    bool present;    // 是否已加载到实存
+    int realPage; // 实存页索引
+    bool present; // 是否已加载到实存
 };
 
 int instAddr[TOTAL_INSTRUCTION];
@@ -118,14 +118,14 @@ int LRU(int memoryPageCount)
             if (getFreeMemoryCount(memory) == 0)
             {
                 // 没有空闲主存
-                // 淘汰 memory[] 中 accessedSeq 最小的
+                // 淘汰 lruCache.begin()
                 vector<int>::iterator it = lruCache.begin();
-                for(int j = 0; j < PMT.size(); j++)
+                for (int j = 0; j < PMT.size(); j++)
                 {
-                    if(PMT[j].present && PMT[j].realPage == *it)
+                    if (PMT[j].present && PMT[j].realPage == *it)
                         PMT[j].present = false;
                 }
-                memory[ *it ].free = true;
+                memory[*it].free = true;
                 lruCache.erase(it);
             }
 
@@ -146,9 +146,9 @@ int LRU(int memoryPageCount)
         {
             // 命中
             vector<int>::iterator it = lruCache.begin();
-            while(it != lruCache.end())
+            while (it != lruCache.end())
             {
-                if(*it == PMT[page].realPage)
+                if (*it == PMT[page].realPage)
                 {
                     // 把命中的页移到最右边
                     int tmp = *it;
@@ -163,17 +163,77 @@ int LRU(int memoryPageCount)
     return pageFaultCount;
 }
 
+int OPT(int memoryPageCount)
+{
+    vector<MemoryBlock> memory(memoryPageCount);
+    vector<PageTableEntry> PMT(VM_CAPACITY);
+    int pageFaultCount = 0;
+    int page;
+    for (int i = 0; i < totals; i++)
+    {
+        page = instAddr[i] / 10;
+        if (!PMT[page].present)
+        {
+            // page fault exception
+            pageFaultCount++;
+            if(getFreeMemoryCount(memory) == 0)
+            {
+                vector<int> toRemove;
+                for(int j = 0; j < PMT.size(); j++)
+                {
+                    if(PMT[j].present)
+                        toRemove.push_back(j);
+                }
+
+                int nPage;
+                for(int j = 1 + i; j < totals && toRemove.size() > 1; j++)
+                {
+                    nPage = instAddr[j] / 10;
+                    for(int z = 0; z < toRemove.size(); z++)
+                    {
+                        if(toRemove[z] == nPage)
+                        {
+                            toRemove.erase(z + toRemove.begin());
+                            break;
+                        }
+                    }
+                }
+                // if toRemove.size() still more than 1, delete random one.
+                int tmp = toRemove[0];
+                PMT[tmp].present = false;
+                memory[ PMT[tmp].realPage ].free = true;
+
+            }
+            for (int j = 0; j < memory.size(); j++)
+            {
+                // 任意找一块空闲实存
+                if (memory[j].free)
+                {
+                    memory[j].free = false;
+                    PMT[page].present = true;
+                    PMT[page].realPage = j;
+                    break;
+                }
+            }
+        
+        }
+    }
+    return pageFaultCount;
+}
+
 int main(int argc, char *argv[])
 {
-    int r = createInstructionAddr("D:\\Download\\test3dat.dat");
+    int r = createInstructionAddr("./test3dat.dat");
     cout << setprecision(4) << fixed;
     for (int i = 4; i <= 32; i++)
     {
         int f1 = FIFO(i);
         int f2 = LRU(i);
-        cout << i << " page frames:	 "
+        int f3 = OPT(i);
+        cout << setw(2) << i << " page frames:	 "
              << "FIFO:" << (1 - double(f1) / totals)
-             << ", LRU:" << (1 - double(f2) / totals) << endl;
+             << ", LRU:" << (1 - double(f2) / totals)
+             << ", OPT:" << (1 - double(f3) / totals) << endl;
     }
     return 0;
 }
