@@ -1,11 +1,11 @@
 run: main
 	./main
 
-diff: test-result.dat
-	diff -Z test-result.dat result3.dat
+diff: pageout.dat
+	diff -Z pageout.dat result3.dat
 
-test-result.dat: main
-	./main > test-result.dat
+pageout.dat: main
+	./main "test3dat.dat"
 
 main: main.cpp
 	g++ -o main main.cpp
