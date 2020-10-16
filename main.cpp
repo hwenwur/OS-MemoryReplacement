@@ -13,6 +13,7 @@ class MemoryBlock
 {
 public:
     MemoryBlock() : free(true) {}
+
 public:
     bool free; // 是否空闲
 };
@@ -92,7 +93,8 @@ public:
             removeMemoryBlock();
         }
         int p = allocateMemory(page);
-        if (p == -1) std::cerr << "Error: failed to allocate memory." << std::endl;
+        if (p == -1)
+            std::cerr << "Error: failed to allocate memory." << std::endl;
     }
     /*  
     寻找并分配空闲实存，默认使用第一块空闲实存
@@ -120,9 +122,9 @@ public:
 protected:
     MemoryManager mm;
     vector<PageTableEntry> PMT;
-    int step; // 当前执行指令序号
+    int step;         // 当前执行指令序号
     int *instruction; // 所有指令
-    int instLength; 
+    int instLength;
 };
 
 class FIFOPageRepl : public BasePageRepl
@@ -132,9 +134,9 @@ public:
     int removeMemoryBlock() override
     {
         mm.free(rear);
-        for(int j = 0; j < PMT.size(); j++)
+        for (int j = 0; j < PMT.size(); j++)
         {
-            if(PMT[j].realPage == rear)
+            if (PMT[j].realPage == rear)
                 PMT[j].present = false;
         }
         int t = rear;
@@ -154,11 +156,10 @@ private:
     int front, rear; // 循环队列头、尾
 };
 
-
-class LRUPageRepl: public BasePageRepl
+class LRUPageRepl : public BasePageRepl
 {
 public:
-    LRUPageRepl(int memoryPageCount, int PMTSize = VM_CAPACITY): BasePageRepl(memoryPageCount, PMTSize) {}
+    LRUPageRepl(int memoryPageCount, int PMTSize = VM_CAPACITY) : BasePageRepl(memoryPageCount, PMTSize) {}
     int removeMemoryBlock() override
     {
         vector<int>::iterator it = lruCache.begin();
@@ -194,15 +195,15 @@ public:
             it++;
         }
     }
+
 private:
     vector<int> lruCache;
 };
 
-
-class OPTPageRepl: public BasePageRepl
+class OPTPageRepl : public BasePageRepl
 {
 public:
-    OPTPageRepl(int memoryPageCount, int PMTSize = VM_CAPACITY): BasePageRepl(memoryPageCount, PMTSize) {}
+    OPTPageRepl(int memoryPageCount, int PMTSize = VM_CAPACITY) : BasePageRepl(memoryPageCount, PMTSize) {}
     int removeMemoryBlock() override
     {
         vector<int> toRemove;
@@ -231,51 +232,86 @@ public:
         mm.free(PMT[tmp].realPage);
         return 0;
     }
-
 };
 
+enum PageReplType
+{
+    FIFO,
+    LRU,
+    OPT
+};
 
-int instAddr[TOTAL_INSTRUCTION];
-int totals = 0;
+float hitRate(PageReplType t, int inst[], int totals, int memoryPageCount)
+{
+    BasePageRepl *pageRepl;
+    switch (t)
+    {
+    case FIFO:
+        pageRepl = new FIFOPageRepl(memoryPageCount);
+        break;
+    case LRU:
+        pageRepl = new LRUPageRepl(memoryPageCount);
+        break;
+    case OPT:
+        pageRepl = new OPTPageRepl(memoryPageCount);
+        break;
+    default:
+        throw "Unknow PageReplType t";
+        break;
+    }
+    int f = pageRepl->execute(inst, totals);
+    delete pageRepl;
+    return 1 - float(f) / totals;
+}
 
-int createInstructionAddr(const char *fn)
+int createInstructionAddr(const char *fn, int inst[], int *totals)
 {
     ifstream inFile;
     inFile.open(fn, ios_base::in);
     if (!inFile.is_open())
-        return 1;
-    inFile >> totals;
-    for (int i = 0; i < totals; i++)
+        return 0;
+    int len;
+    inFile >> len;
+    for (int i = 0; i < len; i++)
     {
-        inFile >> instAddr[i];
+        inFile >> inst[i];
     }
+    *totals = len;
     inFile.close();
-    return 0;
+    return 1;
 }
-
-inline float hitRate(int f) { return 1 - float(f) / totals; }
 
 int main(int argc, char *argv[])
 {
-    int r = createInstructionAddr("./test3dat.dat");
-    cout << setprecision(4) << fixed;
-    BasePageRepl *fifo, *lru, *opt;
+    int inst[TOTAL_INSTRUCTION];
+    int totals;
+
+    if (argc >= 2)
+    {
+        if (createInstructionAddr(argv[1], inst, &totals) == 0)
+        {
+            cout << "Invalid Data!" << endl;
+            return 1;
+        }
+    }
+    else
+    {
+        cout << "not found data file!" << endl;
+        return 1;
+    }
+
+    ofstream outFile("pageout.dat");
+
+    outFile << "18122606" << endl;
+
+    outFile << setprecision(4) << fixed;
     int f1, f2, f3;
     for (int i = 4; i <= 32; i++)
     {
-        fifo = new FIFOPageRepl(i);
-        lru = new LRUPageRepl(i);
-        opt = new OPTPageRepl(i);
-
-        f1 = fifo->execute(instAddr, totals);
-        f2 = lru->execute(instAddr, totals);
-        f3 = opt->execute(instAddr, totals);
-
-        cout << setw(2) << i << " page frames:	 "
-             << "FIFO:" << hitRate(f1)
-             << ", LRU:" << hitRate(f2)
-             << ", OPT:" << hitRate(f3) << endl;
-        delete fifo, lru, opt;
+        outFile << setw(2) << i << " page frames:	 "
+                << "FIFO:" << hitRate(FIFO, inst, totals, i)
+                << ", LRU:" << hitRate(LRU, inst, totals, i)
+                << ", OPT:" << hitRate(OPT, inst, totals, i) << endl;
     }
     return 0;
 }
