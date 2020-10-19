@@ -226,7 +226,6 @@ public:
                 }
             }
         }
-        // if toRemove.size() still more than 1, delete random one.
         int tmp = toRemove[0];
         PMT[tmp].present = false;
         mm.free(PMT[tmp].realPage);
